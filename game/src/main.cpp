@@ -2,6 +2,7 @@
 // GL_CHECK find and replace regex
 // gl[A-Z]([A-Za-z]+)\([A-Za-z_0-9, *+&->]+\)
 
+#include <glm/gtc/matrix_transform.hpp>
 #include <glm/glm.hpp>
 #include <string.h>
 #include <stdint.h>
@@ -31,8 +32,8 @@ struct render_context
     GLuint cameraUbo;
     GLuint instanceUbo;
 
+    camera_ubo_data cameraData;
     render_instance_data instanceData[MAX_INSTANCES];
-    camera_ubo_data cameraData[MAX_INSTANCES];
 };
 
 struct vertex_data
@@ -119,18 +120,30 @@ void fixed_update(double dt, game_context* state)
 
 void render(SDL_Window* window, game_context* state, window_state* windowState, render_context* renderCtx)
 {
-    GL_CHECK(glClearColor(1, 0, 0, 1));
+    GL_CHECK(glClearColor(sinf(float(windowState->ticks) / 1000.f), 0, 0, 1));
     GL_CHECK(glClear(GL_COLOR_BUFFER_BIT));
 
-    // TODO: Set up camera data
-    GL_CHECK(glBindBuffer(GL_UNIFORM_BUFFER, renderCtx->instanceUbo));
+    // TODO: Think through whether we actually want 0-1 coords for everything
+    renderCtx->cameraData.proj = glm::ortho(0, 1, 0, 1);
+    renderCtx->cameraData.view = glm::identity<glm::mat4>();
+
+    GL_CHECK(glBindBuffer(GL_UNIFORM_BUFFER, renderCtx->cameraUbo));
     GL_CHECK(glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(renderCtx->cameraData), &renderCtx->cameraData));
 
+    // Disable actual rendering for now as it's incomplete
+    if (true) return;
+
+    // Since there's only one shader and it has predictable instance data, we can keep this bound for
+    // the remainder of the rendering loop.
+    GL_CHECK(glBindBuffer(GL_UNIFORM_BUFFER, renderCtx->instanceUbo));
+    
     int numInstances = 0;
-    // Note this isn't great, but quick to implement
     for(int i = 0; i < MAX_ENTITIES; ++i)
     {
         auto& ent = state->entities[i];
+
+        // Note this isn't great, but quick to implement and should be totally fine for 255 entities
+        // Ideally we'll store the currently allocated entity count as well
         if (!ent.resident)
             continue;
 
@@ -162,7 +175,7 @@ bool mainLoop(SDL_Window* window, game_context* state, window_state* windowState
     auto ticks = SDL_GetTicks();
     windowState->delta_ticks = ticks - windowState->ticks;
     windowState->deltaTime = double(windowState->delta_ticks) / 1000.0;
-    windowState->ticks = ticks - ticks;
+    windowState->ticks = ticks;
 
     SDL_Event ev;
     while(SDL_PollEvent(&ev))
@@ -188,7 +201,7 @@ bool mainLoop(SDL_Window* window, game_context* state, window_state* windowState
         fixed_update(fixedDelta, state);
         state->fixedTime += fixedDelta;
     }
-    //render(window, state, windowState, renderCtx);
+    render(window, state, windowState, renderCtx);
 
     SDL_GL_SwapWindow(window);
     return true;
