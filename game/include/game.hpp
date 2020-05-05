@@ -14,8 +14,10 @@ struct bounds
     {
         auto& rmin = rhs.min;
         auto& rmax = rhs.max;
-        return  min.x < rmax.x && max.x > rmin.x &&
-                max.y > rmin.y && min.y < rmax.y;
+
+        bool xIntersect = min.x < rmax.x && max.x > rmin.x;
+        bool yIntersect = min.y < rmax.y && max.y > rmax.y;
+        return xIntersect && yIntersect;
     }
 
     inline bool intersects(const glm::vec2& mPos, const bounds& rhs, const glm::vec2& rPos)
@@ -26,18 +28,28 @@ struct bounds
         return mb.intersects(rb);
     }
 
+    inline bool intersects(const bounds& rhs, const glm::vec2& rPos)
+    {
+        // TODO: This can be optimized, but meh
+        bounds rb = { rhs.min + rPos, rhs.max + rPos };
+        return intersects(rb);
+    }
+
     inline glm::vec2 size()
     {
-        return max - min;
+        return (max - min) / 2.f;
     }
 };
 
 struct entity_data
 {
-    glm::vec2 pos;
-
-    glm::vec2 velocity;
     bounds bound;
+    glm::vec2 pos;
+    glm::vec2 velocity;
+    glm::vec2 normal;
+
+    float speed;
+    float additionalSpeed;
     bool resident;
 };
 
@@ -55,6 +67,10 @@ struct game_state
     // entities
     entity leftPaddle;
     entity rightPaddle;
+    
+    entity topWall;
+    entity bottomWall;
+
     entity ball;
     bounds playSpace;
 };

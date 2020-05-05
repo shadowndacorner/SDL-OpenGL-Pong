@@ -28,10 +28,17 @@ bool mainLoop(SDL_Window* window, input_context* input, game_state* state, windo
             {
                 return false;
             }
-            case SDL_WINDOWEVENT_RESIZED:
+            case SDL_WINDOWEVENT:
             {
-                windowState->width = ev.window.data1;
-                windowState->height = ev.window.data2;
+                switch(ev.window.event)
+                {
+                    case SDL_WINDOWEVENT_RESIZED:
+                    {
+                        windowState->width = ev.window.data1;
+                        windowState->height = ev.window.data2;
+                        break;
+                    }
+                }
                 break;
             }
             case SDL_KEYDOWN:
@@ -47,7 +54,7 @@ bool mainLoop(SDL_Window* window, input_context* input, game_state* state, windo
         }
     }
 
-    const double fixedDelta = 1.0 / 60.0;
+    const double fixedDelta = 1.0 / 200.0;
     while(state->fixedTime < double(state->ticks) / 1000.)
     {
         fixed_update(fixedDelta, input, state);
@@ -64,7 +71,7 @@ int main(int argc, char** argv)
 {
     SDL_Init(SDL_INIT_VIDEO);
     
-    auto window = SDL_CreateWindow("programming horror pong", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 1280, 720, SDL_WINDOW_OPENGL);
+    auto window = SDL_CreateWindow("programming horror pong", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 1280, 720, SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE);
     
     // Init SDL GL
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);

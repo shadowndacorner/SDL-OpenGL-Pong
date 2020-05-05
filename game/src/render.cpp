@@ -207,13 +207,27 @@ int render_init(render_context* ctx)
 
 void render(SDL_Window* window, game_state* state, window_state* windowState, render_context* renderCtx)
 {
-    GL_CHECK(glClearColor(sinf((float(state->ticks) / 1000.f) * 2.f) / 2.f +0.5f, 0, 0, 1));
+    GL_CHECK(glViewport(0, 0, windowState->width, windowState->height));
+    //GL_CHECK(glClearColor(sinf((float(state->ticks) / 1000.f) * 2.f) / 2.f +0.5f, 0, 0, 1));
+    GL_CHECK(glClearColor(0, 0, 0, 1));
     GL_CHECK(glClear(GL_COLOR_BUFFER_BIT));
 
     auto& playSpace = state->playSpace;
-    auto max = playSpace.max.x > playSpace.max.y ? playSpace.max.x : playSpace.max.y;
-    auto width = max * windowState->width / windowState->height;
-    auto height = max;
+    int isWidth = 0;
+    auto max = (playSpace.max.x > playSpace.max.y ? (isWidth = 1) * playSpace.max.x : playSpace.max.y) * 1.2f;
+
+    float width, height;
+    if (isWidth)
+    {
+        width = max;
+        height = max / windowState->width * windowState->height;
+    }
+    else
+    {
+        width = max * windowState->width / windowState->height;
+        height = max;
+    }
+    
 
     renderCtx->cameraData.proj = glm::ortho<float>(-width, width, -height, height);
     renderCtx->cameraData.view = glm::identity<glm::mat4>();
