@@ -2,180 +2,22 @@
 // GL_CHECK find and replace regex
 // gl[A-Z]([A-Za-z]+)\([A-Za-z_0-9, *+&->]+\)
 
-#include <glm/gtc/matrix_transform.hpp>
-#include <glm/glm.hpp>
 #include <string.h>
 #include <stdint.h>
 #include <SDL.h>
-#include <glad/glad.h>
-#include <gl_util.h>
+#include <input.hpp>
+#include <game.hpp>
+#include <render.hpp>
+#include <window.hpp>
 
-#define MAX_INSTANCES 64
-#define MAX_ENTITIES 0xff
-struct render_instance_data
-{
-    glm::mat4 model;
-};
-
-struct camera_ubo_data
-{
-    glm::mat4 view;
-    glm::mat4 proj;
-};
-
-struct render_context
-{
-    GLuint shaderProgram;
-    GLuint quadVbo;
-    GLuint quadIbo;
-    
-    GLuint cameraUbo;
-    GLuint instanceUbo;
-
-    camera_ubo_data cameraData;
-    render_instance_data instanceData[MAX_INSTANCES];
-};
-
-struct vertex_data
-{
-    glm::vec4 position;
-};
-
-void render_init(render_context* ctx)
-{
-    GL_CHECK(glGenBuffers(1, &ctx->quadVbo));
-    GL_CHECK(glGenBuffers(1, &ctx->quadIbo));
-    GL_CHECK(glGenBuffers(1, &ctx->cameraUbo));
-    GL_CHECK(glGenBuffers(1, &ctx->instanceUbo));
-    
-    // Init quad VBO
-    {
-        vertex_data quadBuffer[] = {
-            { {0, 0, 0, 1} },
-            { {1, 0, 0, 1} },
-            { {1, 1, 0, 1} },
-            { {0, 1, 0, 1} }
-        };
-
-        GL_CHECK(glBindBuffer(GL_ARRAY_BUFFER, ctx->quadVbo));
-        GL_CHECK(glBufferData(GL_ARRAY_BUFFER, sizeof(quadBuffer), quadBuffer, GL_STATIC_DRAW));
-    }
-
-    // Init quad IBO
-    {
-        uint16_t elements[] = {
-            0, 1, 2,
-            0, 2, 3
-        };
-
-        GL_CHECK(glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ctx->quadIbo));
-        GL_CHECK(glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(elements), elements, GL_STATIC_DRAW));
-    }
-
-    // Init camera UBO
-    {
-        GL_CHECK(glBindBuffer(GL_UNIFORM_BUFFER, ctx->cameraUbo));
-        GL_CHECK(glBufferData(GL_UNIFORM_BUFFER, sizeof(ctx->cameraData), 0, GL_DYNAMIC_DRAW));
-    }
-
-    // Init instance UBO
-    {
-        GL_CHECK(glBindBuffer(GL_UNIFORM_BUFFER, ctx->instanceUbo));
-        GL_CHECK(glBufferData(GL_UNIFORM_BUFFER, sizeof(ctx->instanceData), 0, GL_STREAM_DRAW));
-    }
-
-    // TODO: Shader program
-}
-
-typedef uint8_t entity;
-struct entity_data
-{
-    glm::vec2 pos;
-    glm::vec2 size;
-    float rotation;
-    bool resident;
-};
-
-struct game_context
-{
-    double fixedTime;
-    // objects
-    entity_data entities[MAX_ENTITIES];
-};
-
-struct window_state
-{
-    double deltaTime;
-    uint32_t delta_ticks;
-    uint32_t ticks;
-
-    int width, height;
-    uint8_t keyboard[SDL_NUM_SCANCODES];
-};
-
-void fixed_update(double dt, game_context* state)
-{
-
-}
-
-void render(SDL_Window* window, game_context* state, window_state* windowState, render_context* renderCtx)
-{
-    GL_CHECK(glClearColor(sinf(float(windowState->ticks) / 1000.f), 0, 0, 1));
-    GL_CHECK(glClear(GL_COLOR_BUFFER_BIT));
-
-    // TODO: Think through whether we actually want 0-1 coords for everything
-    renderCtx->cameraData.proj = glm::ortho(0, 1, 0, 1);
-    renderCtx->cameraData.view = glm::identity<glm::mat4>();
-
-    GL_CHECK(glBindBuffer(GL_UNIFORM_BUFFER, renderCtx->cameraUbo));
-    GL_CHECK(glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(renderCtx->cameraData), &renderCtx->cameraData));
-
-    // Disable actual rendering for now as it's incomplete
-    if (true) return;
-
-    // Since there's only one shader and it has predictable instance data, we can keep this bound for
-    // the remainder of the rendering loop.
-    GL_CHECK(glBindBuffer(GL_UNIFORM_BUFFER, renderCtx->instanceUbo));
-    
-    int numInstances = 0;
-    for(int i = 0; i < MAX_ENTITIES; ++i)
-    {
-        auto& ent = state->entities[i];
-
-        // Note this isn't great, but quick to implement and should be totally fine for 255 entities
-        // Ideally we'll store the currently allocated entity count as well
-        if (!ent.resident)
-            continue;
-
-        render_instance_data& dat = renderCtx->instanceData[numInstances++];
-        // TODO: Init model matrix
-        if (numInstances == MAX_INSTANCES)
-        {
-            // Upload instance data
-            GL_CHECK(glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(render_instance_data) * numInstances, &renderCtx->instanceData));
-            
-            // 6 corresponds to number of elements to draw
-            GL_CHECK(glDrawElementsInstanced(GL_TRIANGLES, 6, GL_UNSIGNED_SHORT, 0, numInstances));
-            numInstances = 0;
-        }
-    }
-
-    if (numInstances > 0)
-    {
-        // Same as above, upload instance data
-        GL_CHECK(glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(render_instance_data) * numInstances, &renderCtx->instanceData));
-        
-        // then draw the instances
-        GL_CHECK(glDrawElementsInstanced(GL_TRIANGLES, 6, GL_UNSIGNED_SHORT, 0, numInstances));
-    }
-}
-
-bool mainLoop(SDL_Window* window, game_context* state, window_state* windowState, render_context* renderCtx)
+bool mainLoop(SDL_Window* window, input_context* input, game_state* state, window_state* windowState, render_context* renderCtx)
 {
     auto ticks = SDL_GetTicks();
-    windowState->delta_ticks = ticks - windowState->ticks;
-    windowState->deltaTime = double(windowState->delta_ticks) / 1000.0;
-    windowState->ticks = ticks;
+    state->delta_ticks = ticks - state->ticks;
+    state->deltaTime = double(state->delta_ticks) / 1000.0;
+    state->ticks = ticks;
+
+    inputFrameBegin(input);
 
     SDL_Event ev;
     while(SDL_PollEvent(&ev))
@@ -192,15 +34,26 @@ bool mainLoop(SDL_Window* window, game_context* state, window_state* windowState
                 windowState->height = ev.window.data2;
                 break;
             }
+            case SDL_KEYDOWN:
+            {
+                setKeyPressed(input, ev.key.keysym.scancode);
+                break;
+            }
+            case SDL_KEYUP:
+            {
+                setKeyReleased(input, ev.key.keysym.scancode);
+                break;
+            }
         }
     }
 
     const double fixedDelta = 1.0 / 60.0;
-    while(state->fixedTime < double(windowState->ticks) / 1000.)
+    while(state->fixedTime < double(state->ticks) / 1000.)
     {
-        fixed_update(fixedDelta, state);
+        fixed_update(fixedDelta, input, state);
         state->fixedTime += fixedDelta;
     }
+    update(input, state);
     render(window, state, windowState, renderCtx);
 
     SDL_GL_SwapWindow(window);
@@ -212,6 +65,8 @@ int main(int argc, char** argv)
     SDL_Init(SDL_INIT_VIDEO);
     
     auto window = SDL_CreateWindow("programming horror pong", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 1280, 720, SDL_WINDOW_OPENGL);
+    
+    // Init SDL GL
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
@@ -228,24 +83,32 @@ int main(int argc, char** argv)
     int fail = gladLoadGLLoader(SDL_GL_GetProcAddress);
     if (fail == 0)
     {
-        // fatal error here, failed to initialize opengl
+        fprintf(stderr, "Failed to initialize OpenGL\n");
         return -2;
     }
     
+    input_context input;
     window_state windowState;
     render_context render;
-    game_context start;
+    game_state gameState;
+
 
     // Zero out everything
+    memset(&gameState, 0, sizeof(gameState));
+    memset(&input, 0, sizeof(input));
     memset(&windowState, 0, sizeof(windowState));
     memset(&render, 0, sizeof(render));
-    memset(&start, 0, sizeof(start));
+
+    reset_game_state(&gameState);
 
     SDL_GetWindowSize(window, &windowState.width, &windowState.height);
 
-    render_init(&render);
+    if (!render_init(&render))
+    {
+        fprintf(stderr, "Failed to initialize renderer\n");
+        return -3;
+    }
 
-    while(mainLoop(window, &start, &windowState, &render)){}
-
+    while(mainLoop(window, &input, &gameState, &windowState, &render)){}
     return 0;
 }
