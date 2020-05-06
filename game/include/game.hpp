@@ -2,6 +2,7 @@
 #include <stdint.h>
 #include <glm/glm.hpp>
 #include <input.hpp>
+#include <audio.hpp>
 
 #define MAX_ENTITIES 0xff
 typedef uint8_t entity;
@@ -59,6 +60,8 @@ struct game_state
     double deltaTime;
     uint32_t delta_ticks;
     uint32_t ticks;
+    audio_clip_handle hitSound;
+    audio_clip_handle loseSound;
 
     // game state
     bool playing;
@@ -75,10 +78,10 @@ struct game_state
     bounds playSpace;
 };
 
-void reset_game_state(game_state* state);
+void reset_game_state(audio_context* audio, game_state* state);
 entity createEntity(game_state* game);
 void destroyEntity(game_state* game, entity ent);
 entity_data* getEntityData(game_state* game, entity ent);
 
-void update(input_context* input, game_state* state);
-void fixed_update(double dt, input_context* input, game_state* state);
+void update(audio_context* audio, input_context* input, game_state* state);
+void fixed_update(double dt, audio_context* audio, input_context* input, game_state* state);

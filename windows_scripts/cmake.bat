@@ -7,9 +7,16 @@ IF %ERRORLEVEL% NEQ 0 (
 )
 
 pushd ..\
-if NOT EXIST ..\build (
-    mkdir build
-)
-cd build
-cmake -GNinja ../
+	if NOT EXIST ..\build (
+		mkdir build
+	)
+	cd build
+	cmake -GNinja ../
+
+	if NOT EXIST vs (
+		mkdir vs
+	)
+	cd vs
+
+	cmake -G "Visual Studio 16 2019" -Ax64 ../../
 popd

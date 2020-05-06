@@ -47,7 +47,7 @@ bool ballInPlaySpace(game_state* state)
     return state->playSpace.intersects(ballDat->bound, ballDat->pos);
 }
 
-bool ballCollideWithPaddle(game_state* state, entity paddle)
+inline bool ballCollideWithPaddle(audio_context* audio, game_state* state, entity paddle)
 {
     auto& bdata = *getEntityData(state, state->ball);
     auto& pdata = *getEntityData(state, paddle);
@@ -58,6 +58,7 @@ bool ballCollideWithPaddle(game_state* state, entity paddle)
         bdata.velocity = nrm;
         bdata.speed = len;
         bdata.additionalSpeed = 12.0f;
+        play_sound(audio, state->hitSound);
         return true;
     }
     return false;
@@ -84,13 +85,13 @@ inline void spawnBall(game_state* state)
     ball.bound = { {-ballSize, -ballSize}, {ballSize, ballSize} };
 }
 
-void update(input_context* input, game_state* state)
+void update(audio_context* audio, input_context* input, game_state* state)
 {
     if (!state->playing)
     {
         if (wasKeyPressed(input, SDL_SCANCODE_SPACE))
         {
-            reset_game_state(state);
+            reset_game_state(audio, state);
             state->playing = true;
             spawnBall(state);
         }
@@ -99,7 +100,7 @@ void update(input_context* input, game_state* state)
     {
         if (wasKeyPressed(input, SDL_SCANCODE_ESCAPE))
         {
-            reset_game_state(state);
+            reset_game_state(audio, state);
         }
     }
 }
@@ -121,7 +122,7 @@ void tryMovePaddle(game_state* state, entity_data* paddle, const glm::vec2& unsc
     }
 }
 
-void fixed_update(double dt, input_context* input, game_state* state)
+void fixed_update(double dt, audio_context* audio, input_context* input, game_state* state)
 {
     const float moveSpeed = 8;
     float dtf = float(dt);
@@ -144,21 +145,32 @@ void fixed_update(double dt, input_context* input, game_state* state)
         // Collide with paddles
         // If statement bc it should only be allowed to collide with
         // one paddle/wall per tick
-        ballCollideWithPaddle(state, state->leftPaddle) || 
-        ballCollideWithPaddle(state, state->rightPaddle) || 
-        ballCollideWithPaddle(state, state->bottomWall) || 
-        ballCollideWithPaddle(state, state->topWall);
+        ballCollideWithPaddle(audio, state, state->leftPaddle) || 
+        ballCollideWithPaddle(audio, state, state->rightPaddle) || 
+        ballCollideWithPaddle(audio, state, state->bottomWall) || 
+        ballCollideWithPaddle(audio, state, state->topWall);
 
         if (!ballInPlaySpace(state))
         {
-            reset_game_state(state);
+            reset_game_state(audio, state);
             return;
         }
     }
 }
 
-void reset_game_state(game_state* state)
+void reset_game_state(audio_context* audio, game_state* state)
 {
+    if (state->loseSound == 0)
+    {
+        state->hitSound = load_sound(audio, "data/hit.wav");
+        state->loseSound = load_sound(audio, "data/lose.wav");
+    }
+    else
+    {
+        play_sound(audio, state->loseSound);
+    }
+    
+
     state->playing = false;
     memset(&state->entities, 0, sizeof(state->entities));
     

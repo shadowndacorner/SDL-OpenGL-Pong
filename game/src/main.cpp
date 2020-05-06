@@ -9,9 +9,12 @@
 #include <game.hpp>
 #include <render.hpp>
 #include <window.hpp>
+#include <audio.hpp>
 
-bool mainLoop(SDL_Window* window, input_context* input, game_state* state, window_state* windowState, render_context* renderCtx)
+inline bool mainLoop(SDL_Window* window, audio_context* audio, input_context* input, game_state* state, window_state* windowState, render_context* renderCtx)
 {
+    audio_update(audio);
+
     auto ticks = SDL_GetTicks();
     state->delta_ticks = ticks - state->ticks;
     state->deltaTime = double(state->delta_ticks) / 1000.0;
@@ -57,10 +60,10 @@ bool mainLoop(SDL_Window* window, input_context* input, game_state* state, windo
     const double fixedDelta = 1.0 / 200.0;
     while(state->fixedTime < double(state->ticks) / 1000.)
     {
-        fixed_update(fixedDelta, input, state);
+        fixed_update(fixedDelta, audio, input, state);
         state->fixedTime += fixedDelta;
     }
-    update(input, state);
+    update(audio, input, state);
     render(window, state, windowState, renderCtx);
 
     SDL_GL_SwapWindow(window);
@@ -70,6 +73,7 @@ bool mainLoop(SDL_Window* window, input_context* input, game_state* state, windo
 int main(int argc, char** argv)
 {
     SDL_Init(SDL_INIT_VIDEO);
+    
     
     auto window = SDL_CreateWindow("programming horror pong", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 1280, 720, SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE);
     
@@ -94,11 +98,13 @@ int main(int argc, char** argv)
         return -2;
     }
     
+    audio_context audio;
+    init_audio(&audio);
+
     input_context input;
     window_state windowState;
     render_context render;
     game_state gameState;
-
 
     // Zero out everything
     memset(&gameState, 0, sizeof(gameState));
@@ -106,7 +112,7 @@ int main(int argc, char** argv)
     memset(&windowState, 0, sizeof(windowState));
     memset(&render, 0, sizeof(render));
 
-    reset_game_state(&gameState);
+    reset_game_state(&audio, &gameState);
 
     SDL_GetWindowSize(window, &windowState.width, &windowState.height);
 
@@ -116,6 +122,8 @@ int main(int argc, char** argv)
         return -3;
     }
 
-    while(mainLoop(window, &input, &gameState, &windowState, &render)){}
+    while(mainLoop(window, &audio, &input, &gameState, &windowState, &render)){}
+    shutdown_audio(&audio);
+
     return 0;
 }
