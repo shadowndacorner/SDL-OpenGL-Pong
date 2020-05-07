@@ -13,3 +13,9 @@ if NOT EXIST ..\build (
 pushd ..\build
 cmake --build .
 popd
+
+if NOT EXIST ..\bin\data (
+	mkdir ..\bin\data
+)
+
+robocopy ..\data ..\bin\data /e /MT /NDL /NJH /NJS /nc /ns /PURGE
